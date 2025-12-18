@@ -30,7 +30,7 @@ export class AuthService {
     const payload = { sub: user.id, role: 'admin', email: user.email };
     const access_token = await this.jwt.signAsync(payload, {
       secret: process.env.JWT_ADMIN_SECRET,
-      expiresIn: process.env.JWT_EXP_ADMIN || '15m',
+      expiresIn: process.env.JWT_EXP_ADMIN || '90m',
       algorithm: 'HS256'
     });
 
@@ -53,7 +53,7 @@ export class AuthService {
     const payload = { sub: user.id, role: 'admin', email: user.email };
     const access_token = await this.jwt.signAsync(payload, {
       secret: process.env.JWT_ADMIN_SECRET,
-      expiresIn: process.env.JWT_EXP_ADMIN || '15m',
+      expiresIn: process.env.JWT_EXP_ADMIN || '90m',
       algorithm: 'HS256'
     });
     return {
@@ -96,7 +96,7 @@ export class AuthService {
     const payload = { sub: `team:${teamId}`, role: 'team', teamId, sessionId };
     return this.jwt.signAsync(payload, {
       secret: process.env.JWT_TEAM_SECRET,
-      expiresIn: process.env.JWT_EXP_TEAM || '60m',
+      expiresIn: process.env.JWT_EXP_TEAM || '90m',
       algorithm: 'HS256'
     });
   }

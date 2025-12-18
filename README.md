@@ -273,8 +273,8 @@ REDIS_URL="redis://localhost:6379"
 # JWT Secrets (GÜÇ LÜ secretlar kullanın!)
 JWT_ADMIN_SECRET="super-secret-admin-key-256-chars-min"
 JWT_TEAM_SECRET="super-secret-team-key-256-chars-min"
-JWT_EXP_ADMIN="15m"
-JWT_EXP_TEAM="60m"
+JWT_EXP_ADMIN="90m"
+JWT_EXP_TEAM="90m"
 
 # Server
 PORT=8080
@@ -635,8 +635,8 @@ socket.on('scoreboard:updated', (data) => {
 | `PORT` | API port numarası | `8080` |
 | `NODE_ENV` | Ortam (development/production) | `development` |
 | `REDIS_URL` | Redis bağlantı string'i | `redis://localhost:6379` |
-| `JWT_EXP_ADMIN` | Admin token süresi | `15m` |
-| `JWT_EXP_TEAM` | Team token süresi | `60m` |
+| `JWT_EXP_ADMIN` | Admin token süresi | `90m` |
+| `JWT_EXP_TEAM` | Team token süresi | `90m` |
 | `ALLOWED_ORIGINS` | CORS allowed origins (virgülle ayır) | `http://localhost:3000` |
 
 ### Production için Öneriler

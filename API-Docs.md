@@ -2,6 +2,94 @@
 
 Backend API ve WebSocket event dokümantasyonu - Yeniden yapılandırılmış versiyon
 
+---
+
+## 📋 İÇİNDEKİLER
+
+### 🔐 Authentication & User Management
+- [AUTHENTICATION ENDPOINTS](#-authentication-endpoints)
+  - [POST /api/auth/register](#post-apiauthregister)
+  - [POST /api/auth/login](#post-apiauthlogin)
+  - [POST /api/auth/logout](#post-apiauthlogout)
+  - [GET /api/auth/me](#get-apiauthme)
+- [USER SETTINGS ENDPOINTS](#-user-settings-endpoints)
+  - [PATCH /api/users/me/email](#patch-apiusersmeemail)
+  - [PATCH /api/users/me/password](#patch-apiusersmepassword)
+  - [DELETE /api/users/me](#delete-apiusersme)
+
+### 📝 Quiz & Question Management (Admin)
+- [ADMIN - QUIZ ENDPOINTS](#-admin---quiz-endpoints)
+  - [POST /api/admin/quizzes](#post-apiadminquizzes)
+  - [GET /api/admin/quizzes](#get-apiadminquizzes)
+  - [GET /api/admin/quizzes/:quizId](#get-apiadminquizzesquizid)
+  - [PUT /api/admin/quizzes/:quizId](#put-apiadminquizzesquizid)
+  - [DELETE /api/admin/quizzes/:quizId](#delete-apiadminquizzesquizid)
+- [ADMIN - QUESTION ENDPOINTS](#-admin---question-endpoints)
+  - [POST /api/admin/quizzes/:quizId/questions](#post-apiadminquizzesquizidquestions)
+  - [GET /api/admin/quizzes/:quizId/questions](#get-apiadminquizzesquizidquestions)
+  - [PUT /api/admin/questions/:questionId](#put-apiadminquestionsquestionid)
+  - [DELETE /api/admin/questions/:questionId](#delete-apiadminquestionsquestionid)
+
+### 🎮 Session Management
+- [ADMIN - SESSION ENDPOINTS](#-admin---session-endpoints)
+  - [POST /api/admin/quizzes/:quizId/session](#post-apiadminquizzesquizidsession)
+  - [GET /api/admin/sessions/:sessionCode](#get-apiadminsessionssessioncode)
+  - [GET /api/admin/sessions/:sessionCode/scoreboard](#get-apiadminsessionssessioncodescoreboard)
+  - [POST /api/admin/sessions/:sessionCode/start](#post-apiadminsessionssessioncodestart)
+- [PUBLIC/TEAM - SESSION ENDPOINTS](#publicteam---session-endpoints)
+  - [GET /api/sessions/:sessionCode/quiz](#get-apisessionssessioncodequiz)
+  - [GET /api/sessions/:sessionCode/question/current](#get-apisessionssessioncodequestioncurrent)
+  - [POST /api/sessions/:sessionCode/answer](#post-apisessionssessioncodeanswer)
+  - [GET /api/sessions/:sessionCode/teams](#get-apisessionssessioncodeteams)
+
+### 👥 Team Management
+- [TEAM ENDPOINTS](#-team-endpoints)
+  - [POST /api/teams/join](#post-apiteamsjoin)
+
+### 📚 Technical Reference
+- [REQUEST/RESPONSE TYPE DEFINITIONS](#-requestresponse-type-definitions)
+  - [Authentication DTOs](#authentication-dtos)
+  - [Quiz Management DTOs](#quiz-management-dtos)
+  - [Question DTOs](#question-dtos)
+  - [Session DTOs](#session-dtos)
+  - [Team DTOs](#team-dtos)
+  - [User Settings DTOs](#user-settings-dtos)
+- [DATABASE MODELS (PRISMA SCHEMA)](#%EF%B8%8F-database-models-prisma-schema)
+  - [Enums](#enums)
+  - [User Model](#user-model)
+  - [Quiz Model](#quiz-model)
+  - [Question Model](#question-model)
+  - [QuizSession Model](#quizsession-model)
+  - [Team Model](#team-model)
+  - [Answer Model](#answer-model)
+  - [Field Type Mappings](#field-type-mappings)
+  - [Relationships Diagram](#relationships-diagram)
+  - [Cascade Delete Rules](#cascade-delete-rules)
+
+### 🔌 WebSocket & Real-time
+- [WEBSOCKET EVENTS](#-websocket-events)
+  - [CONNECTION EVENTS](#connection-events)
+  - [SESSION EVENTS](#session-events)
+  - [QUESTION EVENTS](#question-events)
+  - [ANSWER EVENTS](#answer-events)
+  - [SCOREBOARD EVENTS](#scoreboard-events)
+  - [ADMIN CONTROL EVENTS](#admin-control-events)
+- [WebSocket Integration Guide](#-websocket-integration-guide)
+  - [Basic Connection](#basic-connection)
+  - [React Integration Example](#react-integration-example)
+  - [Vue.js Integration Example](#vuejs-integration-example)
+  - [Error Handling](#error-handling)
+  - [Reconnection Strategy](#reconnection-strategy)
+  - [Admin Controls](#admin-controls)
+  - [TypeScript Types (Optional)](#typescript-types-optional)
+
+### 📖 Additional Info
+- [EVENT NAMING STANDARD](#-event-naming-standard)
+- [AUTHENTICATION](#-authentication)
+- [ERROR CODES](#%EF%B8%8F-error-codes)
+
+---
+
 ## Genel Bilgi
 
 - **Base URL:** `https://<domain>/api` (Development: `http://localhost:8082/api`)
@@ -705,6 +793,489 @@ Tüm WebSocket event'leri `domain:action` formatını kullanır:
 
 **Version:** 2.0  
 **Last Updated:** 2025-12-15
+
+---
+
+## 📝 REQUEST/RESPONSE TYPE DEFINITIONS
+
+### Authentication DTOs
+
+#### RegisterDto / LoginDto
+```typescript
+class LoginDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+}
+
+class RegisterDto extends LoginDto {}
+```
+
+**Example:**
+```json
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+```
+
+---
+
+### Quiz Management DTOs
+
+#### CreateQuizDto
+```typescript
+class CreateQuizDto {
+  @IsString()
+  title: string;
+
+  @IsOptional()
+  settings?: {
+    [key: string]: any;
+  };
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  questions: CreateQuestionDto[];
+}
+```
+
+**Example:**
+```json
+{
+  "title": "Geography Quiz",
+  "settings": {
+    "shuffleQuestions": true,
+    "showCorrectAnswers": false
+  },
+  "questions": [...]
+}
+```
+
+---
+
+### Question DTOs
+
+#### CreateQuestionDto
+```typescript
+class CreateQuestionDto {
+  @IsString()
+  text: string;
+
+  @IsEnum(['MCQ', 'TF'])
+  type: 'MCQ' | 'TF';
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  choices?: Array<{
+    id: string;
+    text: string;
+  }>;
+
+  @IsOptional()
+  correctAnswer?: any;        // Auto-converted to JSON
+
+  @IsInt()
+  timeLimitSec: number;
+
+  @IsInt()
+  points: number;
+
+  @IsOptional()
+  @IsInt()
+  indexInQuiz?: number;       // Auto-calculated if omitted
+}
+```
+
+**MCQ Example:**
+```json
+{
+  "text": "What is the capital of Turkey?",
+  "type": "MCQ",
+  "choices": [
+    { "id": "A", "text": "Istanbul" },
+    { "id": "B", "text": "Ankara" }
+  ],
+  "correctAnswer": "B",
+  "timeLimitSec": 30,
+  "points": 10
+}
+```
+
+**True/False Example:**
+```json
+{
+  "text": "The Earth is flat",
+  "type": "TF",
+  "correctAnswer": "false",
+  "timeLimitSec": 15,
+  "points": 5
+}
+```
+
+> **Note:** `correctAnswer` internally converted to:
+> - MCQ: `{ id: "B" }`
+> - TF: `{ value: false }`
+
+---
+
+### Session DTOs
+
+#### CreateSessionDto
+```typescript
+class CreateSessionDto {
+  @IsOptional()
+  @IsDateString()
+  startsAt?: string;          // ISO 8601 format
+}
+```
+
+**Example:**
+```json
+{
+  "startsAt": "2025-12-18T14:00:00.000Z"
+}
+```
+
+#### SubmitAnswerDto
+```typescript
+class SubmitAnswerDto {
+  @IsString()
+  questionId: string;         // UUID
+
+  answerPayload: any;         // Choice ID (string) or boolean
+}
+```
+
+**Example:**
+```json
+{
+  "questionId": "550e8400-e29b-41d4-a716-446655440000",
+  "answerPayload": "B"
+}
+```
+
+---
+
+### Team DTOs
+
+#### JoinTeamDto
+```typescript
+class JoinTeamDto {
+  @IsString()
+  sessionCode: string;        // 6-character code
+
+  @IsString()
+  teamName: string;           // Unique within session
+}
+```
+
+**Example:**
+```json
+{
+  "sessionCode": "ABC123",
+  "teamName": "Red Dragons"
+}
+```
+
+---
+
+### User Settings DTOs
+
+#### UpdateEmailDto
+```typescript
+class UpdateEmailDto {
+  @IsEmail()
+  newEmail: string;
+
+  @IsString()
+  currentPassword: string;    // Required for security
+}
+```
+
+#### UpdatePasswordDto
+```typescript
+class UpdatePasswordDto {
+  @IsString()
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
+}
+```
+
+---
+
+## 🗄️ DATABASE MODELS (PRISMA SCHEMA)
+
+### Enums
+
+```typescript
+enum QuestionType {
+  MCQ    // Multiple Choice Question
+  TF     // True/False
+}
+
+enum SessionStatus {
+  CREATED    // Initial state
+  ACTIVE     // Quiz in progress
+  PAUSED     // Temporarily stopped
+  FINISHED   // Completed
+}
+```
+
+---
+
+### User Model
+
+```prisma
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  quizzes      Quiz[]
+}
+```
+
+**TypeScript Type:**
+```typescript
+interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+  createdAt: Date;
+}
+```
+
+---
+
+### Quiz Model
+
+```prisma
+model Quiz {
+  id         String        @id @default(uuid()) @db.Uuid
+  title      String
+  visibility String        @default("private")
+  createdBy  String        @db.Uuid
+  createdAt  DateTime      @default(now())
+  settings   Json?
+  questions  Question[]
+  sessions   QuizSession[]
+}
+```
+
+**TypeScript Type:**
+```typescript
+interface Quiz {
+  id: string;
+  title: string;
+  visibility: string;
+  createdBy: string;
+  createdAt: Date;
+  settings?: object;
+}
+```
+
+---
+
+### Question Model
+
+```prisma
+model Question {
+  id            String       @id @default(uuid()) @db.Uuid
+  quizId        String       @db.Uuid
+  text          String
+  type          QuestionType
+  choices       Json?        // Array<{id: string, text: string}>
+  correctAnswer Json         // {id?: string, value?: boolean}
+  timeLimitSec  Int
+  points        Int
+  indexInQuiz   Int
+  
+  @@unique([quizId, indexInQuiz])
+}
+```
+
+**TypeScript Type:**
+```typescript
+interface Question {
+  id: string;
+  quizId: string;
+  text: string;
+  type: 'MCQ' | 'TF';
+  choices?: Array<{ id: string; text: string }>;
+  correctAnswer: { id?: string; value?: boolean };
+  timeLimitSec: number;
+  points: number;
+  indexInQuiz: number;
+}
+```
+
+**Field Details:**
+- `choices`: Only for MCQ type, null for TF
+- `correctAnswer`: 
+  - MCQ: `{ id: "A" }`
+  - TF: `{ value: true }`
+- `indexInQuiz`: Unique per quiz, auto-incremented if not provided
+
+---
+
+### QuizSession Model
+
+```prisma
+model QuizSession {
+  id                   String        @id @default(uuid()) @db.Uuid
+  quizId               String        @db.Uuid
+  sessionCode          String        @unique
+  status               SessionStatus @default(ACTIVE)
+  currentQuestionIndex Int?          @default(0)
+  startsAt             DateTime?
+  createdAt            DateTime      @default(now())
+  teams                Team[]
+  answers              Answer[]
+}
+```
+
+**TypeScript Type:**
+```typescript
+interface QuizSession {
+  id: string;
+  quizId: string;
+  sessionCode: string;             // 6-char code (e.g., "ABC123")
+  status: 'CREATED' | 'ACTIVE' | 'PAUSED' | 'FINISHED';
+  currentQuestionIndex?: number;
+  startsAt?: Date;
+  createdAt: Date;
+}
+```
+
+**Special Features:**
+- `sessionCode`: Auto-generated 6-character alphanumeric code
+- `status`: Auto-changes from CREATED → ACTIVE on first answer
+- `currentQuestionIndex`: Tracks current question (0-indexed)
+
+---
+
+### Team Model
+
+```prisma
+model Team {
+  id           String      @id @default(uuid()) @db.Uuid
+  sessionId    String      @db.Uuid
+  name         String
+  disqualified Boolean     @default(false)
+  joinedAt     DateTime    @default(now())
+  answers      Answer[]
+  
+  @@unique([sessionId, name])
+}
+```
+
+**TypeScript Type:**
+```typescript
+interface Team {
+  id: string;
+  sessionId: string;
+  name: string;
+  disqualified: boolean;
+  joinedAt: Date;
+}
+```
+
+**Constraints:**
+- Team name must be unique within a session
+- Cannot have duplicate team names in same session
+
+---
+
+### Answer Model
+
+```prisma
+model Answer {
+  id            String      @id @default(uuid()) @db.Uuid
+  sessionId     String      @db.Uuid
+  questionId    String      @db.Uuid
+  teamId        String      @db.Uuid
+  answerPayload Json
+  isCorrect     Boolean
+  pointsAwarded Int         @default(0)
+  answeredAt    DateTime    @default(now())
+  latencyMs     Int?
+  
+  @@unique([sessionId, questionId, teamId])
+}
+```
+
+**TypeScript Type:**
+```typescript
+interface Answer {
+  id: string;
+  sessionId: string;
+  questionId: string;
+  teamId: string;
+  answerPayload: any;          // Choice ID or boolean
+  isCorrect: boolean;
+  pointsAwarded: number;
+  answeredAt: Date;
+  latencyMs?: number;
+}
+```
+
+**Constraints:**
+- One answer per team per question per session
+- Cannot answer same question twice
+
+---
+
+### Field Type Mappings
+
+| Prisma Type | TypeScript | JSON Example | Description |
+|-------------|------------|--------------|-------------|
+| `String` | `string` | `"text"` | Text data |
+| `Int` | `number` | `42` | Integer |
+| `Boolean` | `boolean` | `true` | True/false |
+| `DateTime` | `Date` / `string` | `"2025-12-18T10:00:00.000Z"` | ISO 8601 |
+| `Json` | `object` / `any` | `{"key": "value"}` | JSON data |
+| `@default(uuid())` | `string` | `"550e8400-e29b..."` | UUID v4 |
+| `QuestionType` | `'MCQ' \| 'TF'` | `"MCQ"` | Enum |
+| `SessionStatus` | `'CREATED' \| ...` | `"ACTIVE"` | Enum |
+
+---
+
+### Relationships Diagram
+
+```mermaid
+graph TD
+    User -->|creates| Quiz
+    Quiz -->|has many| Question
+    Quiz -->|has many| QuizSession
+    QuizSession -->|has many| Team
+    Team -->|submits| Answer
+    Question -->|validates| Answer
+    QuizSession -->|tracks| Answer
+```
+
+---
+
+### Cascade Delete Rules
+
+**When Quiz is deleted:**
+1. All Questions
+2. All QuizSessions
+3. All Teams (in those sessions)
+4. All Answers (from those teams)
+
+**When User is deleted:**
+1. All Quizzes (user created)
+2. All related Questions, Sessions, Teams, Answers
+
+**Implementation:** Manual cascade delete in service layer (not database-level)
 
 ---
 
