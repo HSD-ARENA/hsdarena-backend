@@ -27,13 +27,140 @@ NestJS, Prisma, PostgreSQL ve WebSocket teknolojileri ile geliştirilmiş, canl�
 
 ### Ön Gereksinimler
 
-- Node.js (v18 veya üzeri)
-- npm veya yarn
-- PostgreSQL (veya Neon DB hesabı)
-- Redis (opsiyonel, caching için)
-- Docker (opsiyonel, local development için)
+- **Docker & Docker Compose** (Önerilen - en kolay kurulum)
+- veya Node.js (v18+), PostgreSQL, Redis
 
-### 3 Adımda Başlat
+### 🐳 Yöntem 1: Docker ile Tek Komutta Başlat (ÖNERİLEN)
+
+Docker ile tüm yapıyı (PostgreSQL, Redis, Backend API) tek seferde ayağa kaldırın:
+
+```bash
+# 1. Docker container'ları başlat (otomatik build + çalıştır)
+docker compose up --build
+
+# Arka planda çalıştırmak için:
+docker compose up --build -d
+```
+
+**🎉 Hepsi bu kadar!** Aşağıdaki servisler otomatik olarak çalışacak:
+
+| Servis | URL/Port | Açıklama |
+|--------|----------|----------|
+| **Backend API** | `http://localhost:8082` | NestJS REST API + WebSocket |
+| **Swagger UI** | `http://localhost:8082/docs` | Interaktif API dokümantasyonu |
+| **PostgreSQL** | `localhost:5432` | Veritabanı (kullanıcı: `postgres`, şifre: `postgres`) |
+| **Redis** | `localhost:6379` | Cache ve session yönetimi |
+
+#### 🏗️ Docker Yapısı
+
+Docker Compose ile 3 ana servis çalışır:
+
+##### 1️⃣ **PostgreSQL** (Database)
+```yaml
+postgres:
+  image: postgres:16
+  environment:
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_DB: hsdarena
+  ports: ["5432:5432"]
+  volumes:
+    - pgdata:/var/lib/postgresql/data  # Veri kalıcılığı
+```
+- **Görev**: Ana veritabanı (User, Quiz, Session, Team, Answer modelleri)
+- **Versiyon**: PostgreSQL 16 (resmi Docker image)
+- **Kalıcılık**: `pgdata` volume ile veriler container silindikten sonra bile korunur
+
+##### 2️⃣ **Redis** (Cache & Session Store)
+```yaml
+redis:
+  image: redis:7-alpine
+  ports: ["6379:6379"]
+```
+- **Görev**: Caching, rate limiting, session yönetimi
+- **Versiyon**: Redis 7 (Alpine Linux - hafif image)
+- **Kullanım**: JWT token validation cache, scoreboard cache
+
+##### 3️⃣ **Backend API** (NestJS Application)
+```yaml
+api:
+  build: .                          # Mevcut Dockerfile'ı kullanır
+  depends_on: [postgres, redis]     # Önce DB ve Redis başlar
+  environment:
+    DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/hsdarena"
+    REDIS_URL: redis://redis:6379
+    JWT_ADMIN_SECRET: dev-admin-secret
+    JWT_TEAM_SECRET: dev-team-secret
+    PORT: 8082
+  ports: ["8082:8082"]
+  command: npm run start:dev        # Hot-reload ile development mode
+  volumes:
+    - .:/app                        # Kod değişiklikleri anında yansır
+    - /app/node_modules             # node_modules container içinde kalır
+```
+- **Görev**: REST API + WebSocket Gateway
+- **Build**: Multi-stage Dockerfile (Node.js 20-slim + Prisma binaries)
+- **Dev Mode**: `npm run start:dev` ile hot-reload aktif
+- **Özel İlgi**: `binaryTargets = ["native", "debian-openssl-3.0.x"]` ile Prisma uyumluluğu sağlanır
+
+#### 📋 Docker Komutları
+
+```bash
+# Container'ları başlat (build + run)
+docker compose up --build
+
+# Arka planda çalıştır
+docker compose up -d
+
+# Logları izle
+docker compose logs -f
+
+# Sadece bir servisi logla (örn: api)
+docker compose logs -f api
+
+# Container durumunu kontrol et
+docker compose ps
+
+# Container'ları durdur
+docker compose down
+
+# Container'ları durdur ve volume'leri sil (VERİ KAYBI!)
+docker compose down -v
+
+# Sadece belirli bir servisi yeniden başlat
+docker compose restart api
+
+# Container içine gir (debugging için)
+docker compose exec api sh
+docker compose exec postgres psql -U postgres -d hsdarena
+```
+
+#### 🔧 İlk Kurulum Sonrası
+
+Docker container'ları ilk kez başlattıktan sonra:
+
+```bash
+# 1. API container'ına bağlan
+docker compose exec api sh
+
+# 2. Prisma migration'larını çalıştır
+npm run prisma:generate
+npm run db:deploy
+
+# 3. Seed data yükle (demo admin + quiz)
+npm run seed
+
+# 4. Container'dan çık
+exit
+```
+
+Artık API tamamen hazır! 🚀
+
+---
+
+### ⚙️ Yöntem 2: Manuel Kurulum (Docker Olmadan)
+
+Eğer Docker kullanmak istemiyorsanız:
 
 ```bash
 # 1. Bağımlılıkları yükle
@@ -41,7 +168,7 @@ npm install
 
 # 2. Environment variables ayarla
 cp .env.example .env
-# .env dosyasını düzenle
+# .env dosyasını düzenle (DATABASE_URL, JWT secrets, vb.)
 
 # 3. Veritabanını hazırla ve başlat
 npm run prisma:generate
@@ -49,6 +176,8 @@ npm run db:deploy
 npm run seed
 npm run start:dev
 ```
+
+**Not**: Bu yöntemde PostgreSQL ve Redis'i ayrıca kurmanız gerekir.
 
 ✅ API çalışıyor! → `http://localhost:8082`  
 ✅ Swagger UI → `http://localhost:8082/docs`
