@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class WebsocketAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(private readonly jwtService: JwtService) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client: AuthenticatedSocket = context.switchToWs().getClient();
@@ -16,12 +16,21 @@ export class WebsocketAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
-        // JWT secret'ını config'den almak en iyisidir, ama basitlik için burada bırakılabilir.
-        // secret: this.configService.get('JWT_SECRET')
-      });
-      client.teamId = payload.teamId;
-      return true;
+      // Try admin secret first
+      try {
+        const payload = await this.jwtService.verifyAsync(token, {
+          secret: process.env.JWT_ADMIN_SECRET
+        });
+        client.teamId = payload.teamId || payload.adminId;
+        return true;
+      } catch {
+        // If admin secret fails, try team secret
+        const payload = await this.jwtService.verifyAsync(token, {
+          secret: process.env.JWT_TEAM_SECRET
+        });
+        client.teamId = payload.teamId;
+        return true;
+      }
     } catch (err) {
       throw new WsException('Invalid authentication token');
     }

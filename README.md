@@ -6,20 +6,18 @@ NestJS, Prisma, PostgreSQL ve WebSocket teknolojileri ile geliştirilmiş, canl�
 
 ---
 
-## 📚 İçindekiler
+## 📚 Hızlı Navigasyon
 
-- [Hızlı Başlangıç](#-hızlı-başlangıç)
-- [Özellikler](#-özellikler)
-- [Teknoloji Stack](#-teknoloji-stack)
-- [Kurulum](#-kurulum)
-- [Proje Yapısı](#-proje-yapısı)
-- [API Dokümantasyonu](#-api-dokümantasyonu)
-- [WebSocket Events](#-websocket-events)
-- [Ortam Değişkenleri](#-ortam-değişkenleri)
-- [Veritabanı](#-veritabanı)
-- [Test Etme](#-test-etme)
-- [Deployment](#-deployment)
-- [Katkıda Bulunma](#-katkıda-bulunma)
+- [🚀 Hızlı Başlangıç](#-hızlı-başlangıç)
+- [✨ Özellikler](#-özellikler)
+- [🛠 Teknoloji Stack](#-teknoloji-stack)
+- [📦 Kurulum](#-kurulum)
+- [📁 Proje Yapısı](#-proje-yapısı)
+- [📖 API Dokümantasyonu](#-api-dokümantasyonu)
+- [🔧 Ortam Değişkenleri](#-ortam-değişkenleri)
+- [🗄️ Veritabanı](#-veritabanı)
+- [🧪 Test Etme](#-test-etme)
+- [🔧 Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -30,157 +28,31 @@ NestJS, Prisma, PostgreSQL ve WebSocket teknolojileri ile geliştirilmiş, canl�
 - **Docker & Docker Compose** (Önerilen - en kolay kurulum)
 - veya Node.js (v18+), PostgreSQL, Redis
 
-### 🐳 Yöntem 1: Docker ile Tek Komutta Başlat (ÖNERİLEN)
-
-Docker ile tüm yapıyı (PostgreSQL, Redis, Backend API) tek seferde ayağa kaldırın:
+### 🐳 Docker ile Tek Komutta Başlat (ÖNERİLEN)
 
 ```bash
 # 1. Docker container'ları başlat (otomatik build + çalıştır)
-docker compose up --build
-
-# Arka planda çalıştırmak için:
 docker compose up --build -d
+
+# 2. Migration ve seed data
+docker compose exec api sh
+npm run prisma:generate
+npm run db:deploy
+npm run seed
+exit
 ```
 
-**🎉 Hepsi bu kadar!** Aşağıdaki servisler otomatik olarak çalışacak:
+**🎉 Hepsi bu kadar!** Aşağıdaki servisler çalışıyor:
 
 | Servis | URL/Port | Açıklama |
 |--------|----------|----------|
 | **Backend API** | `http://localhost:8082` | NestJS REST API + WebSocket |
 | **Swagger UI** | `http://localhost:8082/docs` | Interaktif API dokümantasyonu |
-| **PostgreSQL** | `localhost:5432` | Veritabanı (kullanıcı: `postgres`, şifre: `postgres`) |
-| **Redis** | `localhost:6379` | Cache ve session yönetimi |
+| **PostgreSQL** | `localhost:5432` | Veritabanı |
+| **Redis** | `localhost:6379` | Cache ve session |
 
-#### 🏗️ Docker Yapısı
-
-Docker Compose ile 3 ana servis çalışır:
-
-##### 1️⃣ **PostgreSQL** (Database)
-```yaml
-postgres:
-  image: postgres:16
-  environment:
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: postgres
-    POSTGRES_DB: hsdarena
-  ports: ["5432:5432"]
-  volumes:
-    - pgdata:/var/lib/postgresql/data  # Veri kalıcılığı
-```
-- **Görev**: Ana veritabanı (User, Quiz, Session, Team, Answer modelleri)
-- **Versiyon**: PostgreSQL 16 (resmi Docker image)
-- **Kalıcılık**: `pgdata` volume ile veriler container silindikten sonra bile korunur
-
-##### 2️⃣ **Redis** (Cache & Session Store)
-```yaml
-redis:
-  image: redis:7-alpine
-  ports: ["6379:6379"]
-```
-- **Görev**: Caching, rate limiting, session yönetimi
-- **Versiyon**: Redis 7 (Alpine Linux - hafif image)
-- **Kullanım**: JWT token validation cache, scoreboard cache
-
-##### 3️⃣ **Backend API** (NestJS Application)
-```yaml
-api:
-  build: .                          # Mevcut Dockerfile'ı kullanır
-  depends_on: [postgres, redis]     # Önce DB ve Redis başlar
-  environment:
-    DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/hsdarena"
-    REDIS_URL: redis://redis:6379
-    JWT_ADMIN_SECRET: dev-admin-secret
-    JWT_TEAM_SECRET: dev-team-secret
-    PORT: 8082
-  ports: ["8082:8082"]
-  command: npm run start:dev        # Hot-reload ile development mode
-  volumes:
-    - .:/app                        # Kod değişiklikleri anında yansır
-    - /app/node_modules             # node_modules container içinde kalır
-```
-- **Görev**: REST API + WebSocket Gateway
-- **Build**: Multi-stage Dockerfile (Node.js 20-slim + Prisma binaries)
-- **Dev Mode**: `npm run start:dev` ile hot-reload aktif
-- **Özel İlgi**: `binaryTargets = ["native", "debian-openssl-3.0.x"]` ile Prisma uyumluluğu sağlanır
-
-#### 📋 Docker Komutları
-
-```bash
-# Container'ları başlat (build + run)
-docker compose up --build
-
-# Arka planda çalıştır
-docker compose up -d
-
-# Logları izle
-docker compose logs -f
-
-# Sadece bir servisi logla (örn: api)
-docker compose logs -f api
-
-# Container durumunu kontrol et
-docker compose ps
-
-# Container'ları durdur
-docker compose down
-
-# Container'ları durdur ve volume'leri sil (VERİ KAYBI!)
-docker compose down -v
-
-# Sadece belirli bir servisi yeniden başlat
-docker compose restart api
-
-# Container içine gir (debugging için)
-docker compose exec api sh
-docker compose exec postgres psql -U postgres -d hsdarena
-```
-
-#### 🔧 İlk Kurulum Sonrası
-
-Docker container'ları ilk kez başlattıktan sonra:
-
-```bash
-# 1. API container'ına bağlan
-docker compose exec api sh
-
-# 2. Prisma migration'larını çalıştır
-npm run prisma:generate
-npm run db:deploy
-
-# 3. Seed data yükle (demo admin + quiz)
-npm run seed
-
-# 4. Container'dan çık
-exit
-```
-
-Artık API tamamen hazır! 🚀
-
----
-
-### ⚙️ Yöntem 2: Manuel Kurulum (Docker Olmadan)
-
-Eğer Docker kullanmak istemiyorsanız:
-
-```bash
-# 1. Bağımlılıkları yükle
-npm install
-
-# 2. Environment variables ayarla
-cp .env.example .env
-# .env dosyasını düzenle (DATABASE_URL, JWT secrets, vb.)
-
-# 3. Veritabanını hazırla ve başlat
-npm run prisma:generate
-npm run db:deploy
-npm run seed
-npm run start:dev
-```
-
-**Not**: Bu yöntemde PostgreSQL ve Redis'i ayrıca kurmanız gerekir.
-
-✅ API çalışıyor! → `http://localhost:8082`  
-✅ Swagger UI → `http://localhost:8082/docs`
+> [!TIP]
+> Docker'sız kurulum için [Manuel Kurulum](#-kurulum) bölümüne bakın.
 
 ---
 
@@ -188,9 +60,9 @@ npm run start:dev
 
 ### 🎮 Quiz Yönetimi
 - ✅ Çoklu seçenekli (MCQ) ve Doğru/Yanlış (T/F) soru tipleri
-- ✅ Soru havuzu ve dinamik quiz oluşturma
-- ✅ Quiz settings (süre, puan, bonus ayarları)
+- ⏱️ **Soru başına ayarlanabilir süre limiti (5-240 saniye)**
 - ✅ Admin paneli için tam CRUD operasyonları
+- ✅ Quiz settings (soru karıştırma, doğru cevap gösterimi)
 
 ### 👥 Takım Sistemi
 - ✅ Session code ile kolay katılım
@@ -207,15 +79,10 @@ npm run start:dev
 
 ### 📊 Gerçek Zamanlı
 - ✅ WebSocket ile anlık event'ler (`domain:action` formatı)
+- ⏱️ **Otomatik timer yönetimi - süre bitince `time:up` event'i**
 - ✅ Canlı scoreboard güncellemeleri
 - ✅ Soru başlangıç/bitiş bildirimleri
 - ✅ Takım cevap istatistikleri
-
-### 📈 Skorlama
-- ✅ Otomatik cevap doğrulama
-- ✅ Puan hesaplama
-- ✅ Canlı leaderboard
-- ✅ Session bazlı raporlama
 
 ---
 
@@ -243,10 +110,6 @@ npm run start:dev
 - **Swagger/OpenAPI** - API dokümantasyonu
 - **Jest** - Unit & Integration testleri
 
-### DevOps
-- **Docker** - Containerization
-- **Docker Compose** - Multi-container setup
-
 ---
 
 ## 📦 Kurulum
@@ -267,22 +130,25 @@ npm run start:dev
 # Database (Neon DB)
 DATABASE_URL="postgresql://user:pass@ep-xxx.aws.neon.tech/neondb?sslmode=require"
 
-# Redis (opsiyonel - yerel veya cloud)
+# Redis
 REDIS_URL="redis://localhost:6379"
 
-# JWT Secrets (GÜÇ LÜ secretlar kullanın!)
+# JWT Secrets (GÜVENLİ random stringler kullanın!)
 JWT_ADMIN_SECRET="super-secret-admin-key-256-chars-min"
 JWT_TEAM_SECRET="super-secret-team-key-256-chars-min"
 JWT_EXP_ADMIN="90m"
 JWT_EXP_TEAM="90m"
 
 # Server
-PORT=8080
+PORT=8082
 NODE_ENV=development
 
 # CORS
 ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001"
 ```
+
+> [!IMPORTANT]
+> Docker Compose ile Neon kullanmak için `docker-compose.yml` dosyasında `DATABASE_URL` satırı yorumda olmalı (`.env`'den alacak).
 
 #### 3️⃣ Kurulum Komutları
 
@@ -303,38 +169,20 @@ npm run seed
 npm run start:dev
 ```
 
-#### 4️⃣ Redis Kurulumu
-
-**A) Yerel Redis (Docker ile):**
-```bash
-docker compose up -d redis
-```
-
-**B) Cloud Redis (Upstash, Redis Cloud):**
-```env
-REDIS_URL="redis://username:password@host:port"
-```
-
 ---
 
 ### Yöntem 2: Docker ile Tam Yerel Setup
 
 ```bash
-# Tüm servisleri başlat (PostgreSQL + Redis)
-docker compose up -d
+# Tüm servisleri başlat (PostgreSQL + Redis + API)
+docker compose up --build -d
 
-# Bağımlılıkları yükle
-npm install
-
-# Prisma setup
+# Migration ve seed (container içinde)
+docker compose exec api sh
 npm run prisma:generate
 npm run db:deploy
-
-# Seed data
 npm run seed
-
-# Uygulamayı başlat
-npm run start:dev
+exit
 ```
 
 **Servisler:**
@@ -355,88 +203,31 @@ hsdarena-backend/
 │
 ├── src/
 │   ├── auth/                # 🔐 Kimlik doğrulama
-│   │   ├── dto/             # Login, Register DTO'ları
-│   │   ├── strategies/      # JWT stratejileri (Admin/Team)
-│   │   ├── auth.controller.ts
-│   │   ├── auth.service.ts
-│   │   └── auth.module.ts
-│   │
 │   ├── users/               # 👤 Kullanıcı ayarları
-│   │   ├── dto/             # Email, Password update DTO'ları
-│   │   ├── users.controller.ts
-│   │   ├── users.service.ts
-│   │   └── users.module.ts
-│   │
 │   ├── quiz/                # 📝 Quiz yönetimi (Admin)
-│   │   ├── dto/             # Quiz CRUD DTO'ları
-│   │   ├── quiz.controller.ts
-│   │   ├── quiz.service.ts
-│   │   └── quiz.module.ts
-│   │
 │   ├── questions/           # ❓ Soru yönetimi (Admin)
-│   │   ├── dto/             # Question CRUD DTO'ları
-│   │   ├── questions.controller.ts
-│   │   ├── questions.service.ts
-│   │   └── questions.module.ts
-│   │
 │   ├── sessions/            # 🎮 Session ve cevap yönetimi
-│   │   ├── dto/             # Session, Answer DTO'ları
-│   │   ├── sessions.controller.ts  # Admin + Team endpoints
-│   │   ├── sessions.service.ts
-│   │   └── sessions.module.ts
-│   │
 │   ├── team/                # 👥 Takım katılımı
-│   │   ├── dto/             # Join team DTO
-│   │   ├── team.controller.ts
-│   │   ├── team.service.ts
-│   │   └── team.module.ts
-│   │
 │   ├── realtime/            # 🔌 WebSocket Gateway
-│   │   ├── dto/             # WebSocket event DTO'ları
-│   │   ├── guards/          # WS auth guards
-│   │   ├── interceptors/    # WS logging
-│   │   ├── types/           # WebSocket tipleri
-│   │   ├── quiz.gateway.ts  # Ana WebSocket gateway
-│   │   ├── websocket.service.ts
-│   │   └── realtime.module.ts
-│   │
 │   ├── common/              # 🔧 Ortak bileşenler
-│   │   ├── filters/         # Exception filters
-│   │   ├── guards/          # Auth guards (Admin/Team JWT)
-│   │   ├── interceptors/    # Global interceptors
-│   │   └── pipes/           # Validation pipes
-│   │
 │   ├── infra/               # 🏗️ Altyapı servisleri
-│   │   ├── prisma/          # Prisma module & service
-│   │   ├── redis/           # Redis module & service
-│   │   └── logger/          # Custom logger
-│   │
-│   ├── config/              # ⚙️ Yapılandırma
-│   │   └── configuration.ts
-│   │
-│   ├── app.module.ts        # Ana modül
-│   ├── app.controller.ts    # Health check endpoint
-│   └── main.ts              # Uygulama başlangıcı
+│   └── config/              # ⚙️ Yapılandırma
 │
 ├── .env                     # Environment variables
-├── .env.example             # Env template
 ├── docker-compose.yml       # Docker servisleri
 ├── Dockerfile               # Production image
-├── package.json             # NPM dependencies
-├── tsconfig.json            # TypeScript config
-├── nest-cli.json            # NestJS config
-├── API-Docs-v2.md           # Detaylı API dokümantasyonu
+├── API-Docs.md              # 📖 Detaylı API dokümantasyonu
 └── README.md                # Bu dosya
 ```
 
-### 📂 Modül Açıklamaları
+### 📂 Modül Sorumlulukları
 
 | Modül | Sorumluluk | Endpoint Prefix |
 |-------|------------|-----------------|
 | **auth** | Login, Register, Token yönetimi | `/api/auth/*` |
-| **users** | Kullanıcı ayarları (email, password, delete) | `/api/users/*` |
-| **quiz** | Quiz CRUD (sadece admin) | `/api/admin/quizzes/*` |
-| **questions** | Soru CRUD (sadece admin) | `/api/admin/questions/*` |
+| **users** | Kullanıcı ayarları | `/api/users/*` |
+| **quiz** | Quiz CRUD (admin) | `/api/admin/quizzes/*` |
+| **questions** | Soru CRUD (admin) | `/api/admin/questions/*` |
 | **sessions** | Session yönetimi & cevap gönderme | `/api/admin/sessions/*`, `/api/sessions/*` |
 | **team** | Takım katılımı | `/api/teams/*` |
 | **realtime** | WebSocket event'leri | `/realtime` namespace |
@@ -445,176 +236,28 @@ hsdarena-backend/
 
 ## 📖 API Dokümantasyonu
 
+### 🎯 Swagger UI (Interaktif)
+
 ```
 http://localhost:8082/docs
 ```
 
-### API Endpoint'leri
+### 📚 Detaylı Dokümantasyon
 
-#### 🔐 Authentication
+**Tüm endpoint'ler, request/response formatları, WebSocket event'leri ve daha fazlası için:**
 
-| Method | Endpoint | Açıklama | Auth |
-|--------|----------|----------|------|
-| POST | `/api/auth/register` | Yeni admin kullanıcısı kaydet | - |
-| POST | `/api/auth/login` | Admin girişi | - |
-| POST | `/api/auth/logout` | Çıkış yap | Admin |
-| GET | `/api/auth/me` | Mevcut kullanıcı bilgileri | Admin |
+👉 **[API-Docs.md](./API-Docs.md)** 👈
 
-#### 👤 User Settings
-
-| Method | Endpoint | Açıklama | Auth |
-|--------|----------|----------|------|
-| PATCH | `/api/users/me/email` | Email güncelle | Admin |
-| PATCH | `/api/users/me/password` | Şifre güncelle | Admin |
-| DELETE | `/api/users/me` | Hesap sil | Admin |
-
-#### 📝 Quizzes (Admin)
-
-| Method | Endpoint | Açıklama | Auth |
-|--------|----------|----------|------|
-| POST | `/api/admin/quizzes` | Yeni quiz oluştur | Admin |
-| GET | `/api/admin/quizzes` | Tüm quizleri listele | Admin |
-| GET | `/api/admin/quizzes/:id` | Quiz detayları | Admin |
-| PUT | `/api/admin/quizzes/:id` | Quiz güncelle | Admin |
-| DELETE | `/api/admin/quizzes/:id` | Quiz sil | Admin |
-
-#### ❓ Questions (Admin)
-
-| Method | Endpoint | Açıklama | Auth |
-|--------|----------|----------|------|
-| POST | `/api/admin/quizzes/:quizId/questions` | Soru ekle | Admin |
-| GET | `/api/admin/quizzes/:quizId/questions` | Soruları listele | Admin |
-| PUT | `/api/admin/questions/:id` | Soru güncelle | Admin |
-| DELETE | `/api/admin/questions/:id` | Soru sil | Admin |
-
-#### 🎮 Sessions (Admin)
-
-| Method | Endpoint | Açıklama | Auth |
-|--------|----------|----------|------|
-| POST | `/api/admin/quizzes/:quizId/session` | Session oluştur | Admin |
-| POST | `/api/admin/sessions/:code/start` | Session başlat (ACTIVE yap) | Admin |
-| GET | `/api/admin/sessions/:code` | Session detayları | Admin |
-| GET | `/api/admin/sessions/:code/scoreboard` | Scoreboard | Admin |
-
-#### 🎯 Sessions (Team)
-
-| Method | Endpoint | Açıklama | Auth |
-|--------|----------|----------|------|
-| GET | `/api/sessions/:code/quiz` | Quiz bilgisi al | Public |
-| GET | `/api/sessions/:code/question/current` | Aktif soru | Public |
-| POST | `/api/sessions/:code/answer` | Cevap gönder | Team |
-
-#### 👥 Teams
-
-| Method | Endpoint | Açıklama | Auth |
-|--------|----------|----------|------|
-| POST | `/api/teams/join` | Session'a katıl | Public |
-
-### Örnek API Kullanımı
-
-#### 1. Admin Login
-```bash
-curl -X POST http://localhost:8082/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@example.com",
-    "password": "Admin123!"
-  }'
-```
-
-#### 2. Quiz Oluştur
-```bash
-curl -X POST http://localhost:8082/api/admin/quizzes \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
-  -d '{
-    "title": "Genel Kültür Quiz",
-    "settings": {},
-    "questions": [
-      {
-        "index": 1,
-        "text": "Türkiye'\''nin başkenti neresidir?",
-        "type": "MCQ",
-        "choices": [
-          {"id": "A", "text": "Istanbul"},
-          {"id": "B", "text": "Ankara"}
-        ],
-        "correctAnswer": "B",
-        "timeLimitSec": 30,
-        "points": 10
-      }
-    ]
-  }'
-```
-
-#### 3. Takım Katılımı
-```bash
-curl -X POST http://localhost:8082/api/teams/join \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sessionCode": "ABC123",
-    "teamName": "Red Dragons"
-  }'
-```
-
-Detaylı API dokümantasyonu için: [API-Docs-v2.md](./API-Docs-v2.md)
-
----
-
-## 🔌 WebSocket Events
-
-### Connection
-```
-ws://localhost:8082/realtime
-```
-
-### Event Format: `domain:action`
-
-#### Session Events (Server → Client)
-- `session:started` - Session başladı
-- `session:ended` - Session bitti
-
-#### Question Events (Server → Client)
-- `question:started` - Yeni soru başladı
-- `question:time-warning` - Süre uyarısı (10 sn kala)
-- `question:ended` - Soru süresi doldu
-
-#### Answer Events (Server → Client)
-- `answer:submitted` - Bir takım cevap gönderdi
-- `answer:stats-updated` - Cevap istatistikleri güncellendi
-
-#### Scoreboard Events (Server → Client)
-- `scoreboard:updated` - Scoreboard güncellendi
-
-#### Admin Control (Client → Server)
-- `admin:next-question` - Sonraki soruya geç
-- `admin:end-session` - Session'ı bitir
-
-### Örnek WebSocket Kullanımı
-
-```javascript
-import { io } from 'socket.io-client';
-
-const socket = io('http://localhost:8082/realtime', {
-  auth: {
-    token: 'YOUR_TEAM_TOKEN'
-  }
-});
-
-// Session'a katıl
-socket.emit('join_session', {
-  sessionCode: 'ABC123'
-});
-
-// Event dinle
-socket.on('question:started', (data) => {
-  console.log('Yeni soru:', data.question);
-});
-
-socket.on('scoreboard:updated', (data) => {
-  console.log('Skor tablosu:', data.leaderboard);
-});
-```
+Bu dokümanda bulacağınız içerik:
+- 🔐 Authentication & User Management
+- 📝 Quiz & Question Management (Admin)
+- 🎮 Session Management (Admin & Team)
+- 👥 Team Management
+- 🔌 WebSocket Events (tüm event'ler detaylı)
+- ⏱️ **Timer Feature (`time:up` event)**
+- 📊 Database Models (Prisma Schema)
+- 🔧 Request/Response Type Definitions
+- 🌐 WebSocket Integration Guide
 
 ---
 
@@ -632,7 +275,7 @@ socket.on('scoreboard:updated', (data) => {
 
 | Değişken | Açıklama | Varsayılan |
 |----------|----------|------------|
-| `PORT` | API port numarası | `8080` |
+| `PORT` | API port numarası | `8082` |
 | `NODE_ENV` | Ortam (development/production) | `development` |
 | `REDIS_URL` | Redis bağlantı string'i | `redis://localhost:6379` |
 | `JWT_EXP_ADMIN` | Admin token süresi | `90m` |
@@ -651,10 +294,6 @@ DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require"
 
 # Production mode
 NODE_ENV=production
-
-# Rate limiting
-THROTTLE_TTL=60
-THROTTLE_LIMIT=10
 ```
 
 ---
@@ -671,7 +310,7 @@ npm run prisma:generate
 npm run db:migrate
 
 # Migration'ları production'a deploy et
-npx prisma migrate deploy
+npm run db:deploy
 
 # Prisma Studio ile veritabanını görüntüle
 npm run db:studio
@@ -684,25 +323,13 @@ npm run seed
 
 - **User** - Admin kullanıcıları
 - **Quiz** - Quiz tanımları
-- **Question** - Sorular (MCQ/TF)
+- **Question** - Sorular (MCQ/TF) + `timeLimitSec` (5-240 saniye)
 - **QuizSession** - Quiz oturumları
 - **Team** - Takımlar
 - **Answer** - Takım cevapları
 
-### Migration'lar
-
-Migration dosyaları: `prisma/migrations/`
-
-```bash
-# Yeni migration oluştur
-npx prisma migrate dev --name description
-
-# Migration geçmişini görüntüle
-npx prisma migrate status
-
-# Migration geri al (production'da kullanma!)
-npx prisma migrate reset
-```
+> [!NOTE]
+> Detaylı model yapısı, ilişkiler ve field açıklamaları için [API-Docs.md - Database Models](./API-Docs.md#%EF%B8%8F-database-models-prisma-schema) bölümüne bakın.
 
 ---
 
@@ -730,36 +357,14 @@ npm run format
 ### Swagger ile Manuel Test
 
 1. Uygulamayı başlat: `npm run start:dev`
-2. Swagger UI'a git: `http://localhost:8080/docs`
+2. Swagger UI'a git: `http://localhost:8082/docs`
 3. Sağ üstten "Authorize" tıkla
 4. Admin token ile giriş yap
 5. Endpoint'leri test et
 
-### Test Senaryosu
-
-```bash
-# 1. Admin register
-POST /api/auth/register
-
-# 2. Admin login
-POST /api/auth/login
-
-# 3. Quiz oluştur
-POST /api/admin/quizzes
-
-# 4. Session başlat
-POST /api/admin/quizzes/:quizId/session
-
-# 5. Takım katılımı
-POST /api/teams/join
-
-# 6. Cevap gönder
-POST /api/sessions/:code/answer
-```
-
 ---
 
-## � Troubleshooting
+## 🔧 Troubleshooting
 
 ### Port Zaten Kullanımda
 
@@ -775,7 +380,7 @@ Error: listen EADDRINUSE: address already in use :::8082
 # Port'u kullanan process'i bul
 netstat -ano | findstr :8082
 
-# Process'i kapat (PID numarasını yukarıdan al)
+# Process'i kapat
 taskkill /PID <PID> /F
 ```
 
@@ -785,288 +390,62 @@ taskkill /PID <PID> /F
 lsof -ti:8082 | xargs kill -9
 ```
 
-**Veya farklı port kullan:**
-```env
-# .env dosyasında
-PORT=8083
-```
-
 ---
 
 ### Database Bağlantı Hatası
 
 **Hata:**
 ```
-Error: Can't reach database server at `host`
+Error: Can't reach database server
 ```
 
-**Kontrol Listesi:**
-1. ✅ `DATABASE_URL` doğru mu?
-2. ✅ Neon DB'de database aktif mi?
-3. ✅ SSL mode ekli mi? (`?sslmode=require`)
-4. ✅ Firewall/VPN bağlantıyı engelliyor mu?
-
-**Test:**
-```bash
-# Prisma ile bağlantıyı test et
-npx prisma db pull
-```
-
-**Neon DB için:**
-- Dashboard'da database "Active" mi kontrol et
-- Connection string'i yeniden kopyala
-- Pooling bağlantısı yerine Direct bağlantı kullan
+**Çözüm:**
+1. PostgreSQL çalışıyor mu kontrol et: `docker compose ps`
+2. `DATABASE_URL` doğru mu kontrol et
+3. Neon kullanıyorsan, connection string'de `?sslmode=require` olduğundan emin ol
 
 ---
 
-### 401 Unauthorized Errors
-
-**Sebep 1: Token Süresi Dolmuş**
-- Admin token: 15 dakika
-- Team token: 60 dakika
-
-**Çözüm:** Yeniden login yap
-```bash
-POST /api/auth/login
-```
-
-**Sebep 2: Yanlış Authorization Tipi**
-
-Swagger'da doğru token tipini kullan:
-- Admin endpoints → **"admin-token"** (üstteki Authorize)
-- Team endpoints → **"team-token"** (üstteki Authorize)
-
-**Sebep 3: Token Format Hatası**
-
-Doğru format:
-```
-Authorization: Bearer eyJhbGc...
-```
-
----
-
-### Prisma Migration Sorunları
-
-**Development'da:**
-```bash
-# Yeni migration oluştur
-npm run db:migrate
-
-# Migration durumunu kontrol et
-npx prisma migrate status
-```
-
-**Production'da:**
-```bash
-# Migration'ları deploy et
-npx prisma migrate deploy
-```
-
-**Son Çare (DİKKAT: Veri kaybı!):**
-```bash
-# Tüm migration'ları sıfırla
-npx prisma migrate reset
-
-# Seed data'yı yeniden yükle
-npm run seed
-```
-
----
-
-### CORS Errors
+### Prisma Client Hatası
 
 **Hata:**
 ```
-Access to fetch at 'http://localhost:8082' blocked by CORS policy
+Cannot find module '@prisma/client'
 ```
 
 **Çözüm:**
-
-`.env` dosyasında frontend URL'ini ekle:
-```env
-ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173,https://your-frontend.com"
-CORS_ORIGINS="http://localhost:3000,http://localhost:5173,https://your-frontend.com"
-```
-
-**Not:** Virgülle ayırarak birden fazla origin ekleyebilirsin.
-
----
-
-### WebSocket Bağlantı Sorunları
-
-**Hata:** `WebSocket connection to 'ws://localhost:8082' failed`
-
-**Kontrol Listesi:**
-1. ✅ Backend çalışıyor mu?
-2. ✅ Port doğru mu? (`ws://localhost:8082/realtime`)
-3. ✅ Token geçerli mi?
-4. ✅ Namespace doğru mu? (`/realtime`)
-
-**Debug:**
-```javascript
-socket.on('connect_error', (error) => {
-  console.error('Connection error:', error.message);
-});
-
-socket.on('disconnect', (reason) => {
-  console.log('Disconnected:', reason);
-});
+```bash
+npm run prisma:generate
 ```
 
 ---
 
-### Redux/Zustand State Sorunları
-
-**Sorun:** Real-time güncellemeler state'e yansımıyor
-
-**Çözüm:** WebSocket event'lerinde state güncelleme yap:
-```javascript
-socket.on('scoreboard:updated', (data) => {
-  // Redux
-  dispatch(updateLeaderboard(data.leaderboard));
-  
-  // Zustand
-  useStore.setState({ leaderboard: data.leaderboard });
-});
-```
-
----
-
-### npm install Hataları
-
-**Hata:** `npm ERR! code ERESOLVE`
+### Docker Container Başlamıyor
 
 **Çözüm:**
 ```bash
-# Legacy peer deps ile kur
-npm install --legacy-peer-deps
+# Container loglarını kontrol et
+docker compose logs api
 
-# Veya package-lock.json'u sil
-rm package-lock.json
-rm -rf node_modules
-npm install
-```
-
----
-
-**Hala Sorun mu Yaşıyorsun?**
-
-1. Backend log'larını kontrol et: Terminalde hata mesajları
-2. Swagger'da test et: `http://localhost:8082/docs`
-3. `.env` dosyasını kontrol et: Tüm değerler set edilmiş mi?
-4. GitHub Issues: Sorununu detaylı açıkla
-
----
-
-## �🚀 Deployment
-
-### Docker ile Production Build
-
-```bash
-# Image oluştur
-docker build -t hsdarena-backend .
-
-# Container'ı çalıştır
-docker run -p 8082:8082 \
-  -e DATABASE_URL="..." \
-  -e JWT_ADMIN_SECRET="..." \
-  -e JWT_TEAM_SECRET="..." \
-  hsdarena-backend
-```
-
-### Production Checklist
-
-- [ ] Environment variables güvenli şekilde ayarlandı
-- [ ] Database SSL bağlantısı aktif
-- [ ] JWT secretlar güçlü (min 256 karakter)
-- [ ] CORS ayarları production domain'e göre set edildi
-- [ ] Rate limiting aktif
-- [ ] Logging yapılandırıldı
-- [ ] Health check endpoint çalışıyor (`GET /`)
-- [ ] Migration'lar deploy edildi
-- [ ] Seed data yüklendi (ilk admin)
-- [ ] Backup stratejisi hazır
-
-### Deployment Platformları
-
-**Neon DB** (Database):
-- Ücretsiz tier: 3 GB storage
-- Auto-scaling
-- SSL by default
-
-**Railway** (Backend):
-```bash
-# Railway CLI ile deploy
-railway up
-```
-
-**Render** (Backend):
-- Dockerfile ile otomatik deploy
-- Free tier mevcut
-
-**Vercel/Netlify** (Sadece frontend için uygun, backend için değil)
-
----
-
-## 🤝 Katkıda Bulunma
-
-### Geliştirme Akışı
-
-1. Fork'layın
-2. Feature branch oluşturun: `git checkout -b feature/amazing-feature`
-3. Değişikliklerinizi commit edin: `git commit -m 'feat: Add amazing feature'`
-4. Branch'i push edin: `git push origin feature/amazing-feature`
-5. Pull Request oluşturun
-
-### Commit Kuralları
-
-```
-feat: Yeni özellik
-fix: Bug düzeltmesi
-docs: Dokümantasyon değişikliği
-style: Code formatting
-refactor: Code refactoring
-test: Test ekleme/düzeltme
-chore: Build/config değişiklikleri
-```
-
-### Code Style
-
-```bash
-# Linting kontrol
-npm run lint
-
-# Auto-fix
-npm run lint:fix
-
-# Formatting
-npm run format
+# Container'ları temizle ve yeniden başlat
+docker compose down -v
+docker compose up --build
 ```
 
 ---
 
 ## 📞 Destek
 
-- **Dokümantasyon**: [API-Docs-v2.md](./API-Docs-v2.md)
-- **Swagger UI**: `http://localhost:8080/docs`
-- **Issues**: GitHub Issues
+Sorun mu yaşıyorsunuz? Önce şu kaynaklara bakın:
+- 📖 [API-Docs.md](./API-Docs.md) - Detaylı API dokümantasyonu
+- 🐛 [GitHub Issues](#) - Bilinen sorunlar ve çözümler
+- 💬 [Discord Server](#) - Community desteği
 
 ---
 
-## 📄 Lisans
-
-Bu proje özel bir lisans altındadır. Kullanım için izin gereklidir.
-
----
-
-## 🙏 Teşekkürler
-
-- [NestJS](https://nestjs.com/) - Framework
-- [Prisma](https://www.prisma.io/) - ORM
-- [Neon](https://neon.tech/) - Serverless Postgres
+**Version:** 2.1  
+**Last Updated:** 2025-12-23
 
 ---
 
-**Yaratıcı:** HSD Arena Development Team  
-**Versiyon:** 2.0  
-**Son Güncelleme:** Aralık 2025
+**🎯 HSD Arena Backend** - Built with ❤️ by HSD Team

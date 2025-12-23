@@ -655,6 +655,26 @@ Süre uyarısı.
 }
 ```
 
+> [!NOTE]
+> Frontend tarafında her soru için bir countdown timer gösterilir. `timeLimitSec` değeri admin tarafından quiz oluşturulurken belirlenir (5-240 saniye arası).
+
+#### `time:up`
+**Server → Client**
+
+Soru süresi doldu (server-side timer tarafından otomatik gönderilir).
+
+**Payload:**
+```json
+{
+  "sessionCode": "ABC123"
+}
+```
+
+> [!IMPORTANT]
+> Bu event backend tarafından otomatik gönderilir. Admin ve team ekranlarında:
+> - **Admin**: Otomatik olarak skorboard ekranına geçer
+> - **Team**: Eğer cevap verilmediyse "Süre Doldu - Soruyu boş bıraktınız" mesajı gösterir
+
 #### `question:ended`
 **Server → Client**
 

@@ -50,7 +50,7 @@ export class SessionsService {
                 quizId,
                 sessionCode,
                 status: 'CREATED',
-                currentQuestionIndex: 0,
+                currentQuestionIndex: -1, // Start at -1 so first next-question -> 0
                 startsAt: dto.startsAt ? new Date(dto.startsAt) : null,
             },
         });
@@ -286,6 +286,7 @@ export class SessionsService {
     }
 
     async submitAnswer(teamId: string, sessionCode: string, dto: SubmitAnswerDto) {
+        console.log(`📝 submitAnswer called: teamId=${teamId}, sessionCode=${sessionCode}, questionId=${dto.questionId}`);
         // Session'ı ve soruyu kontrol et
         const session = await this.prisma.quizSession.findUnique({
             where: { sessionCode },
@@ -349,14 +350,19 @@ export class SessionsService {
         }
 
         // Cevabı değerlendir
+        console.log(`🔍 Evaluating answer for question type: ${question.type}`);
         let isCorrect = false;
         const correctAnswer = question.correctAnswer as any;
 
         if (question.type === 'MCQ') {
-            isCorrect = dto.answerPayload === correctAnswer.id || dto.answerPayload === correctAnswer;
+            // answerPayload is an object: { choiceId: "uuid" }
+            const submittedChoiceId = (dto.answerPayload as any)?.choiceId || dto.answerPayload;
+            console.log(`Comparing: submitted=${submittedChoiceId}, correct=${correctAnswer.id || correctAnswer}`);
+            isCorrect = submittedChoiceId === correctAnswer.id || submittedChoiceId === correctAnswer;
         } else if (question.type === 'TF') {
             isCorrect = dto.answerPayload === correctAnswer.value || dto.answerPayload === correctAnswer;
         }
+        console.log(`✅ Answer evaluation: isCorrect=${isCorrect}`);
 
         const pointsAwarded = isCorrect ? question.points : 0;
 
@@ -372,13 +378,15 @@ export class SessionsService {
             },
         });
 
-        return {
+        const result = {
             answerId: answer.id,
             isCorrect,
             pointsAwarded,
             submittedAt: answer.answeredAt,
             message: isCorrect ? 'Correct answer!' : 'Incorrect answer',
         };
+        console.log(`📤 Returning answer result:`, result);
+        return result;
     }
 
     async getTeamsBySession(sessionCode: string) {

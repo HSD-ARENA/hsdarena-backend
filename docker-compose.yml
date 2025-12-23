@@ -18,7 +18,8 @@ services:
     depends_on: [ postgres, redis ]
     env_file: .env
     environment:
-      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/hsdarena?schema=public"
+      # DATABASE_URL artık .env'den alınıyor (Neon)
+      # DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/hsdarena?schema=public"
       REDIS_URL: redis://redis:6379
       JWT_ADMIN_SECRET: dev-admin-secret
       JWT_TEAM_SECRET: dev-team-secret

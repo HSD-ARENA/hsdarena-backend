@@ -173,8 +173,17 @@ export class SessionsController {
         @Req() req: any,
         @Body() dto: SubmitAnswerDto
     ) {
-        const teamId = req.user.teamId;
-        return this.sessionsService.submitAnswer(teamId, sessionCode, dto);
+        try {
+            const teamId = req.user.teamId;
+            console.log(`🎯 Controller: submitAnswer called for team ${teamId}, session ${sessionCode}, question ${dto.questionId}`);
+            const result = await this.sessionsService.submitAnswer(teamId, sessionCode, dto);
+            console.log(`✅ Controller: Answer submitted successfully:`, result);
+            return result;
+        } catch (error) {
+            console.error(`❌ Controller: submitAnswer ERROR:`, error);
+            console.error(`Error details:`, JSON.stringify(error, Object.getOwnPropertyNames(error)));
+            throw error;
+        }
     }
 
     @Get('sessions/:sessionCode/teams')
