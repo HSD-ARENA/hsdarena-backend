@@ -4,8 +4,7 @@ module.exports = {
       name: "nestjs-backend",
       script: "npm",
       args: "start",
-      instances: "max",
-      exec_mode: "cluster",
+      exec_mode: "fork",
       env: {
         NODE_ENV: "development",
       },
