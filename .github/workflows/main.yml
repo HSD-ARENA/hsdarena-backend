@@ -1,0 +1,63 @@
+name: Deploy NestJS Application to Self-Hosted Server
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: self-hosted # Senin makineni işaret eder
+
+    strategy:
+      matrix:
+        node-version: [24.x] # Projenin Node versiyonuna göre düzenle
+
+    steps:
+      # 1. Kodu Çek
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Node.js Ortamını Hazırla
+      # Self-hosted olsa bile clean bir setup için setup-node kullanmak iyidir.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      # 3. .env Dosyasını Oluştur
+      # GitHub Repo Settings > Secrets and variables > Actions kısmında
+      # "ENV_FILE" adında bir secret oluştur ve tüm .env içeriğini oraya yapıştır.
+      - name: Create .env file
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
+
+      - name: PM2 Global Kurulumu
+        # npm ile PM2'yi global olarak kurar
+        run: npm install -g pm2
+
+      # 4. Bağımlılıkları Yükle
+      # 'npm ci', 'npm install'a göre daha hızlı ve güvenilirdir (lock dosyasını baz alır).
+      - name: Install Dependencies
+        run: npm ci
+
+      # 5. Build Al
+      - name: Build Application
+        run: npm run build
+
+      # 6. PM2 ile Başlat veya Reload Yap
+      # Bu script: Uygulama çalışıyorsa 'reload' (kesintisiz) yapar, çalışmıyorsa 'start' eder.
+      - name: Start/Reload via PM2
+        run: |
+          if pm2 describe nestjs-backend > /dev/null; then
+            echo "App is running, reloading..."
+            pm2 reload ecosystem.config.cjs --env production --update-env
+          else
+            echo "App is not running, starting..."
+            pm2 start ecosystem.config.cjs --env production
+          fi
+      
+      # 7. PM2 Konfigürasyonunu Kaydet
+      # Sunucu reboot olursa uygulamanın otomatik açılması için.
+      - name: Save PM2 List
+        run: pm2 save
