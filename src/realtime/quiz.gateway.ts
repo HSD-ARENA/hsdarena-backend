@@ -22,7 +22,7 @@ import { Logger } from '@nestjs/common';
   cors: {
     origin: process.env.NODE_ENV === 'development'
       ? '*'
-      : (process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000']),
+      : (process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000']),
     credentials: true
   },
   namespace: '/realtime',
