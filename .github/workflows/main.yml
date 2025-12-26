@@ -28,9 +28,9 @@ jobs:
       # 3. .env Dosyasını Oluştur
       # GitHub Repo Settings > Secrets and variables > Actions kısmında
       # "ENV_FILE" adında bir secret oluştur ve tüm .env içeriğini oraya yapıştır.
-      - name: Create .env file
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
+      #- name: Create .env file
+      #  run: |
+      #    echo "${{ secrets.ENV_FILE }}" > .env
 
       - name: PM2 Global Kurulumu
         # npm ile PM2'yi global olarak kurar
